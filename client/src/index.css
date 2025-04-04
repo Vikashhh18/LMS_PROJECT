@@ -1,8 +1,25 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
-
-
 @import "tailwindcss";
+/* Optional Google Font */
 
-*{
-  font-family: Outfit;
+/* Global styles */
+* {
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Your custom classes */
+.course-details-heading-small {
+  font-size: 26px;
+}
+
+.course-details-heading-large {
+  font-size: 44px;
+}
+
+.home-heading-small {
+  font-size: 34px;
+}
+
+.home-heading-large {
+  font-size: 46px;
 }
