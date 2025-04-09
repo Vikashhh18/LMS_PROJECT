@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from "react";
-import { dummyCourses } from "../assets/assets";
+import {dummyCourses, dummyStudentEnrolled } from "../assets/assets";
 import humanizeDuration from 'humanize-duration';
 
 export const AppContext=createContext();
@@ -9,13 +9,11 @@ export const AppContextProvider=(props)=>{
     
     const [allCourses,setAllCourses]=useState([]);
     const [isEducator,setIsEducator]=useState(true);
+    const [enrolledCourse,setEnrolledCourse]=useState([]);
 
     const fetchAllCourses=async()=>{
         setAllCourses(dummyCourses);
     }
-
-    useEffect(()=>{fetchAllCourses()},[])
-
     // calculate average rating
     const calculateRating = (course) => {
         if (course.courseRatings.length === 0) return 0;
@@ -38,12 +36,18 @@ export const AppContextProvider=(props)=>{
     }
 
     // calculate course duration 
-    const calulateCourseDuration=(course)=>{
-        let time=0;
-        course.courseContent.map((chapter)=>chapter.chapterContent.map((lecture)=>time+=lecture.lectureDuration));
-        return  humanizeDuration(time*60*1000,{units:['h','m']});
-    }
-
+    const calulateCourseDuration = (course) => {
+        let time = 0;
+      
+        (course?.courseContent ?? []).forEach((chapter) => {
+          (chapter?.chapterContent ?? []).forEach((lecture) => {
+            time += lecture?.lectureDuration ?? 0;
+          });
+        });
+      
+        return humanizeDuration(time * 60 * 1000, { units: ['h', 'm'] });
+      };
+      
     // calculate no of lecture in course 
     const calulateNoOfLecture=(course)=>{
         let totalCourse=0;
@@ -55,9 +59,19 @@ export const AppContextProvider=(props)=>{
         return totalCourse;
     }
 
+    // fatch enrolled course by student 
+    const fatchEnrolledCourse=()=>{
+        setEnrolledCourse(dummyCourses);
+    }
+
+    useEffect(()=>{
+        fetchAllCourses(),
+        fatchEnrolledCourse()
+    }
+    ,[])
     const value={
         currency,allCourses,calculateRating,isEducator,setIsEducator,calculateTimeDuration,calulateNoOfLecture
-        ,calulateCourseDuration
+        ,calulateCourseDuration,enrolledCourse,fatchEnrolledCourse
     }
     return(
         <AppContext.Provider value={value}>

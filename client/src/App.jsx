@@ -12,7 +12,7 @@ import AddCourse from './pages/educator/AddCourse.jsx'
 import MyCourse from './pages/educator/MyCourse.jsx'
 import StudentEnrollement from './pages/educator/StudentEnrollement.jsx'
 import Navbar from './components/student/Navbar.jsx'
- 
+import "quill/dist/quill.snow.css";
 
 const App = () => {
 
@@ -26,16 +26,17 @@ const App = () => {
         <Route path='/course-list/:input' element={<CourseList/>}/>   
         <Route path='/course/:id' element={<CourseDetail/>}/>   
         <Route path='/my-enrollement' element={<MyEnrollement/>}/>   
-        <Route path='/Player/:id' element={<Player/>}/>   
+        <Route path='/Player/:course_id' element={<Player/>}/>   
         <Route path='/loading' element={<Loading/>}/>
 
         {/* Educator routers */}
+       
         <Route path='/educator' element={<Educator/>}>
-           <Route path='educator' element={<DeskBoard/>}/>
-           <Route path='add-course' element={<AddCourse/>}/>
-           <Route path='my-course' element={<MyCourse/>}/>
-           <Route path='student-enroll' element={<StudentEnrollement/>}/>
-        </Route>
+  <Route index element={<DeskBoard/>}/> 
+  <Route path='add-course' element={<AddCourse/>}/>
+  <Route path='my-course' element={<MyCourse/>}/>
+  <Route path='student-enroll' element={<StudentEnrollement/>}/>
+</Route>
       </Routes> 
     </div>
   )

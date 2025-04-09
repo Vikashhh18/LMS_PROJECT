@@ -19,7 +19,7 @@ const Navbar = () => {
       <div className='hidden md:flex items-center gap-5 text-gray-500'>
         <div className='flex items-center gap-5'>
           {user &&<>  
-            <button className='cursor-pointer' onClick={()=>{navigate('/eductor')}}>{isEducator?'Educator DeskBoard':'Become Educator'}</button>
+            <button className='cursor-pointer' onClick={()=>{navigate('/educator')}}>{isEducator?'Educator DeskBoard':'Become Educator'}</button>
         | <Link to='/my-enrollement'>My Enrollment</Link> </>
         }  
         </div>
