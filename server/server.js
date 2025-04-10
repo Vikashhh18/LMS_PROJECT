@@ -14,7 +14,7 @@ await connectDb();
 app.use(cors());
 
 
-app.get('/',(req,res)=>res.send('api working!'))
+app.get('/',(req,res)=>res.send('api working properly guys!'))
 app.post('/clerk',express.json(),clerkWebHook)
 
 const PORT=process.env.PORT||4000;
