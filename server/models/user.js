@@ -8,7 +8,7 @@ const userSchema=new mongoose.Schema({
      enrolledStudent:[
         {
             type:mongoose.Schema.Types.ObjectId,
-            ref:course
+            ref:"course "
         }
      ]
 },{timestamps:true});

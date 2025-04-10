@@ -17,6 +17,8 @@ app.use(cors());
 app.get('/',(req,res)=>res.send('api working!'))
 app.post('/clerk',express.json(),clerkWebHook)
 
-app.listen(process.env.PORT,()=>{
-    console.log(`Server run in Port no ${process.env.PORT}`);
+const PORT=process.env.PORT||4000;
+
+app.listen(PORT,()=>{
+    console.log(`Server run in Port no ${PORT}`);
 })
