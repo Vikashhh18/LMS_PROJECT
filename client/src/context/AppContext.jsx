@@ -245,14 +245,19 @@ export const AppContextProvider = (props) => {
         }
     }
 
-    // calculate average rating
+    // calculate average rating with proper null checks
     const calculateRating = (course) => {
+        // Handle case where course or courseRatings is undefined/null
+        if (!course || !course.courseRatings || !Array.isArray(course.courseRatings)) {
+            return 0;
+        }
+
         if (course.courseRatings.length === 0) return 0;
 
         let totalRating = 0;
 
         course.courseRatings.forEach(rating => {
-            totalRating += rating.rating;
+            totalRating += rating?.rating || 0;
         });
 
         return Math.floor(totalRating / course.courseRatings.length);
