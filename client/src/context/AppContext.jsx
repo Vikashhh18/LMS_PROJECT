@@ -9,8 +9,15 @@ export const AppContext = createContext();
 
 export const AppContextProvider = (props) => {
 
-    const currency = import.meta.env.VITE_CURRENCY;
-    const backendUrl = import.meta.env.VITE_BACKEND_URL;
+    // Properly handle environment variables with fallbacks
+    const currency = import.meta.env.VITE_CURRENCY || 'USD';
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 
+                     (window.location.hostname === 'localhost' ? 
+                      'http://localhost:5000' : 
+                      'https://lms-backend.onrender.com');
+    
+    // Log backend URL for debugging
+    console.log('Using backend URL:', backendUrl);
 
     const { getToken } = useAuth();
     const { user } = useUser();
@@ -19,34 +26,62 @@ export const AppContextProvider = (props) => {
     const [isEducator, setIsEducator] = useState(false);
     const [enrolledCourse, setEnrolledCourse] = useState([]);
     const [userData,setUserData]=useState(null);
+    const [apiError, setApiError] = useState(null);
+
+    // Create an axios instance with default config
+    const api = axios.create({
+      baseURL: backendUrl,
+      timeout: 10000
+    });
+    
+    // Add response interceptor for error handling
+    api.interceptors.response.use(
+      response => response,
+      error => {
+        // Handle network errors
+        if (!error.response) {
+          setApiError("Network error: Please check your connection");
+          toast.error("Network error: Please check your connection");
+          console.error("Network error:", error);
+        } else {
+          console.error("API error:", error.response.data);
+        }
+        return Promise.reject(error);
+      }
+    );
 
     const fetchAllCourses = async () => {
-        // setAllCourses(dummyCourses);
         try {
-            const {data}=await axios.get(backendUrl+"/api/course/all");
-            // console.log(data)    
+            setApiError(null);
+            const {data} = await api.get("/api/course/all");
+            
             if(data.success){
                 setAllCourses(data.courses);
             }
             else{
-                toast.error(data.messagse);
+                toast.error(data.message || "Failed to fetch courses");
             }
         } catch (error) {
-            toast.error(error.messagse);    
+            console.error("Error fetching courses:", error);
+            toast.error(error.response?.data?.message || "Failed to fetch courses");
         }
     }
 
-    const fetchUserdata=async()=>{
-        if(user.publicMetadata.role==='educator')setIsEducator(true);
+    const fetchUserdata = async () => {
+        if (user?.publicMetadata?.role === 'educator') setIsEducator(true);
         try {
-            const token=await getToken();
-            const {data}=await axios.get(backendUrl+"/api/user/data",{headers:{Authorization:`Bearer ${token}`}});
+            const token = await getToken();
+            const {data} = await api.get("/api/user/data", {
+                headers: {Authorization: `Bearer ${token}`}
+            });
+            
             if(data.success){
                 setUserData(data.user);
             }
-            else toast.error(data.messagse);
+            else toast.error(data.message || "Failed to fetch user data");
         } catch (error) {
-            toast.error(error.messagse);
+            console.error("Error fetching user data:", error);
+            toast.error(error.response?.data?.message || "Failed to fetch user data");
         }
     }
 
@@ -99,12 +134,9 @@ export const AppContextProvider = (props) => {
     const fatchEnrolledCourse = async () => {
         try {
             const token = await getToken();
-            const { data } = await axios.get(
-                `${backendUrl}/api/user/enrolled-courses`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            
-            console.log("Enrolled courses response:", data);
+            const { data } = await api.get("/api/user/enrolled-courses", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             
             if (data.success) {
                 setEnrolledCourse(data.enrolledCourses || []);
@@ -113,54 +145,67 @@ export const AppContextProvider = (props) => {
             }
         } catch (error) {
             console.error("Error fetching enrolled courses:", error);
-            toast.error(error.message || "Failed to fetch enrolled courses");
+            toast.error(error.response?.data?.message || "Failed to fetch enrolled courses");
         }
     }
 
     useEffect(() => {
-        fetchAllCourses()
-    }, [])
+        fetchAllCourses();
+    }, []);
     
     useEffect(() => {
         if (user) {
             fetchUserdata();
-            fatchEnrolledCourse()
+            fatchEnrolledCourse();
         }
-    }, [user])
+    }, [user]);
 
     const updateRoleToEducator = async () => {
         try {
             const token = await getToken();
 
             if (!token) {
-                console.error("❌ No Clerk token found");
+                console.error("No Clerk token found");
                 return;
             }
 
-            const res = await fetch('http://localhost:3001/api/educator/update-role', {
-                method: 'POST',
+            const { data } = await api.post('/api/educator/update-role', {}, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
 
-            const data = await res.json();
-            console.log("✅ Role updated:", data);
-
             if (data.success) {
                 setIsEducator(true);
+                toast.success("Successfully updated to educator role");
             }
         } catch (error) {
-            console.error("❌ Error calling update-role:", error);
+            console.error("Error updating role:", error);
+            toast.error("Failed to update to educator role");
         }
     };
 
-
     const value = {
-        currency, allCourses, calculateRating, isEducator, setIsEducator, calculateTimeDuration, calulateNoOfLecture
-        , calulateCourseDuration, enrolledCourse, fatchEnrolledCourse, updateRoleToEducator,backendUrl,userData,setUserData,getToken,fetchAllCourses
+        currency, 
+        allCourses, 
+        calculateRating, 
+        isEducator, 
+        setIsEducator, 
+        calculateTimeDuration, 
+        calulateNoOfLecture,
+        calulateCourseDuration, 
+        enrolledCourse, 
+        fatchEnrolledCourse, 
+        updateRoleToEducator,
+        backendUrl,
+        userData,
+        setUserData,
+        getToken,
+        fetchAllCourses,
+        apiError
     }
+    
     return (
         <AppContext.Provider value={value}>
             {props.children}
