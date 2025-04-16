@@ -7,37 +7,99 @@ import { toast } from "react-toastify";
 
 export const AppContext = createContext();
 
-export const AppContextProvider = (props) => {
+// Provide fallback dummy course data
+const DUMMY_COURSES = [
+  {
+    _id: "dummy1",
+    courseTitle: "Demo Course 1",
+    courseDescription: "This is a demo course since the API is unavailable",
+    coursePrice: 29.99,
+    discount: 20,
+    courseThumbnail: "https://via.placeholder.com/300x200?text=Demo+Course+1",
+    courseRatings: [],
+    courseContent: [
+      {
+        chapterTitle: "Introduction",
+        chapterContent: [
+          { lectureTitle: "Welcome", lectureDuration: 5 }
+        ]
+      }
+    ]
+  },
+  {
+    _id: "dummy2",
+    courseTitle: "Demo Course 2",
+    courseDescription: "Another demo course",
+    coursePrice: 49.99,
+    discount: 10,
+    courseThumbnail: "https://via.placeholder.com/300x200?text=Demo+Course+2",
+    courseRatings: [],
+    courseContent: [
+      {
+        chapterTitle: "Getting Started",
+        chapterContent: [
+          { lectureTitle: "Installation", lectureDuration: 10 }
+        ]
+      }
+    ]
+  }
+];
 
+export const AppContextProvider = (props) => {
     // Properly handle environment variables with fallbacks
     const currency = import.meta.env.VITE_CURRENCY || 'USD';
-    // Force use of a specific backend URL for debugging
-    const backendUrl = "https://lms-backend.onrender.com";
+    
+    // Try multiple backend URLs if the primary one fails
+    const potentialBackendUrls = [
+      import.meta.env.VITE_BACKEND_URL,
+      "https://lms-backend.onrender.com",
+      "https://lms-backend-xdgx.onrender.com", // Add your actual Render URL
+      "http://localhost:5000"
+    ];
+    
+    // Start with the first URL
+    const [backendUrl, setBackendUrl] = useState(potentialBackendUrls[0] || "https://lms-backend.onrender.com");
+    const [urlIndex, setUrlIndex] = useState(0);
     
     // Add verbose logging to help debug connection issues
     console.log('🔄 AppContext initialized');
-    console.log('🌐 Using backend URL:', backendUrl);
+    console.log('🌐 Current backend URL:', backendUrl);
     console.log('💲 Currency:', currency);
-    console.log('⚙️ Environment variables:', {
-      VITE_BACKEND_URL: import.meta.env.VITE_BACKEND_URL,
-      VITE_CURRENCY: import.meta.env.VITE_CURRENCY,
-      NODE_ENV: import.meta.env.NODE_ENV
-    });
 
     const { getToken } = useAuth();
     const { user } = useUser();
 
-    const [allCourses, setAllCourses] = useState([]);
+    const [allCourses, setAllCourses] = useState(DUMMY_COURSES);
     const [isEducator, setIsEducator] = useState(false);
     const [enrolledCourse, setEnrolledCourse] = useState([]);
     const [userData, setUserData] = useState(null);
     const [apiError, setApiError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isOfflineMode, setIsOfflineMode] = useState(false);
+
+    // Function to try the next backend URL if one fails
+    const tryNextBackendUrl = () => {
+      const nextIndex = (urlIndex + 1) % potentialBackendUrls.length;
+      const nextUrl = potentialBackendUrls[nextIndex];
+      
+      if (nextUrl) {
+        console.log(`🔄 Switching to next backend URL: ${nextUrl}`);
+        setBackendUrl(nextUrl);
+        setUrlIndex(nextIndex);
+        return true;
+      }
+      
+      // If we've tried all URLs, go to offline mode
+      console.log('⚠️ All backend URLs failed, switching to offline mode');
+      setIsOfflineMode(true);
+      toast.warning("Unable to connect to backend. Using offline mode with demo data.");
+      return false;
+    };
 
     // Create an axios instance with debug settings
     const api = axios.create({
       baseURL: backendUrl,
-      timeout: 30000, // Longer timeout to help with slow connections
+      timeout: 8000, // Use a shorter timeout for better user experience
       withCredentials: false // Disable credentials to fix potential CORS issues
     });
     
@@ -60,23 +122,35 @@ export const AppContextProvider = (props) => {
         return response;
       },
       error => {
+        // Check for timeout errors
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+          console.error('⏱️ Request timed out:', error.config.url);
+          
+          // Try the next backend URL
+          if (tryNextBackendUrl()) {
+            // Retry the request with the new URL
+            const retryConfig = {
+              ...error.config,
+              baseURL: backendUrl
+            };
+            return axios(retryConfig);
+          }
+        }
+        
         // Log and handle network errors in detail
         if (!error.response) {
           console.error('❌ Network error! Full details:', error);
           
-          // Try direct fetch as a fallback to see if the API is reachable
-          fetch(`${backendUrl}/health`)
-            .then(res => {
-              console.log('Health check response:', res.status);
-              if (res.ok) {
-                toast.info("API is reachable via fetch but not axios");
-              }
-            })
-            .catch(e => {
-              console.error('Health check failed:', e);
-              toast.error("API is unreachable: " + e.message);
-            });
-            
+          // Try the next backend URL
+          if (tryNextBackendUrl()) {
+            // Retry the request with the new URL
+            const retryConfig = {
+              ...error.config,
+              baseURL: backendUrl
+            };
+            return axios(retryConfig);
+          }
+          
           setApiError(`Network error: ${error.message}`);
           toast.error(`Network error: ${error.message}`);
         } else {
@@ -89,27 +163,44 @@ export const AppContextProvider = (props) => {
 
     // Run network test on mount
     useEffect(() => {
-      // Test connectivity to backend
+      // First try health endpoint
       console.log('🧪 Testing API connectivity...');
-      fetch(`${backendUrl}/health`)
-        .then(res => {
-          console.log(`🧪 Health check: ${res.status}`);
-          if (res.ok) {
-            console.log('✅ API is reachable');
-          } else {
-            console.error('❌ API returned error status:', res.status);
+      testApiConnectivity();
+    }, [backendUrl]);
+    
+    // Function to test API connectivity
+    const testApiConnectivity = async () => {
+      try {
+        const response = await api.get('/health', { timeout: 5000 });
+        if (response.status === 200) {
+          console.log('✅ API health check passed');
+          setIsOfflineMode(false);
+          // If health check passes, fetch courses and user data
+          fetchAllCourses();
+          if (user) {
+            fetchUserdata();
+            fatchEnrolledCourse();
           }
-        })
-        .catch(err => {
-          console.error('❌ API health check failed:', err.message);
-          toast.error(`API health check failed: ${err.message}`);
-        });
-    }, []);
+        }
+      } catch (error) {
+        console.error('❌ API health check failed:', error.message);
+        // Try the next URL
+        tryNextBackendUrl();
+      }
+    };
 
     const fetchAllCourses = async () => {
         setIsLoading(true);
         try {
             setApiError(null);
+            
+            if (isOfflineMode) {
+              console.log('⚠️ Using dummy course data in offline mode');
+              setAllCourses(DUMMY_COURSES);
+              setIsLoading(false);
+              return;
+            }
+            
             console.log('📚 Fetching all courses...');
             const {data} = await api.get("/api/course/all");
             
@@ -120,21 +211,17 @@ export const AppContextProvider = (props) => {
             }
             else{
                 toast.error(data.message || "Failed to fetch courses");
-                // Fallback to dummy data in development
-                if (import.meta.env.DEV) {
-                    console.log('⚠️ Using dummy course data as fallback');
-                    setAllCourses(dummyCourses);
-                }
+                // Fallback to dummy data
+                console.log('⚠️ Using dummy course data as fallback');
+                setAllCourses(DUMMY_COURSES);
             }
         } catch (error) {
             console.error("❌ Error fetching courses:", error);
-            toast.error(error.response?.data?.message || "Failed to fetch courses");
+            toast.error("Failed to fetch courses");
             
-            // Fallback to dummy data in development
-            if (import.meta.env.DEV) {
-                console.log('⚠️ Using dummy course data as fallback');
-                setAllCourses(dummyCourses);
-            }
+            // Fallback to dummy data
+            console.log('⚠️ Using dummy course data as fallback');
+            setAllCourses(DUMMY_COURSES);
         } finally {
             setIsLoading(false);
         }
@@ -207,6 +294,13 @@ export const AppContextProvider = (props) => {
     const fatchEnrolledCourse = async () => {
         setIsLoading(true);
         try {
+            if (isOfflineMode) {
+              console.log('⚠️ Using empty enrolled courses in offline mode');
+              setEnrolledCourse([]);
+              setIsLoading(false);
+              return;
+            }
+            
             console.log('📚 Fetching enrolled courses...');
             const token = await getToken();
             console.log('🔑 Auth token obtained');
@@ -221,23 +315,13 @@ export const AppContextProvider = (props) => {
                 console.log(`✅ Loaded ${data.enrolledCourses?.length || 0} enrolled courses`);
             } else {
                 console.error('❌ API returned error:', data.message);
-                toast.error(data.message || "Failed to fetch enrolled courses");
-                
-                // Fallback to dummy data in development
-                if (import.meta.env.DEV) {
-                    console.log('⚠️ Using dummy enrolled courses as fallback');
-                    setEnrolledCourse([]);
-                }
+                toast.error("Failed to fetch enrolled courses");
+                setEnrolledCourse([]);
             }
         } catch (error) {
             console.error("❌ Error fetching enrolled courses:", error);
-            toast.error(error.response?.data?.message || "Failed to fetch enrolled courses");
-            
-            // Fallback to dummy data in development
-            if (import.meta.env.DEV) {
-                console.log('⚠️ Using dummy enrolled courses as fallback');
-                setEnrolledCourse([]);
-            }
+            toast.error("Failed to fetch enrolled courses");
+            setEnrolledCourse([]);
         } finally {
             setIsLoading(false);
         }
@@ -298,7 +382,8 @@ export const AppContextProvider = (props) => {
         getToken,
         fetchAllCourses,
         apiError,
-        isLoading
+        isLoading,
+        isOfflineMode
     }
     
     return (

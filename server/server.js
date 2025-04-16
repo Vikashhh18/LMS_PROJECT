@@ -9,6 +9,7 @@ import { ClerkExpressWithAuth } from "@clerk/clerk-sdk-node";
 import connectCloudinary from './config/cloudinary.js';
 import courseRouter from './routes/courseRouter.js';
 import userRouter from './routes/userRoute.js';
+import mongoose from 'mongoose';
 
 // initilaze express 
 const app = express();
@@ -36,24 +37,34 @@ app.get('/', (req, res) => res.send('api working properly guys!'))
 // Add a dedicated health check endpoint for Render
 app.get('/health', (req, res) => res.status(200).send('OK'))
 
-// Add a diagnostic route to help with debugging
-app.get('/api/debug', (req, res) => {
-  res.json({
-    success: true,
-    environment: process.env.NODE_ENV || 'development',
+// Health check endpoint for deployment verification
+app.get("/health", (req, res) => {
+  const healthData = {
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+    environment: process.env.NODE_ENV || "development"
+  };
+  
+  console.log("Health check requested", healthData);
+  res.status(200).json(healthData);
+});
+
+// Add debug endpoint for troubleshooting
+app.get("/api/debug", (req, res) => {
+  const debugInfo = {
     serverTime: new Date().toISOString(),
+    nodeVersion: process.version,
+    environment: process.env.NODE_ENV || "development",
+    mongoConnected: mongoose.connection.readyState === 1,
     cors: {
-      allowedOrigins: typeof corsOptions.origin === 'function' 
-        ? 'dynamic function' 
-        : corsOptions.origin
+      origin: process.env.CORS_ORIGIN || "all origins (*))",
+      enabled: true
     },
-    connections: {
-      mongodb: !!process.env.MONGODB_URI,
-      clerk: !!process.env.CLERK_SECRET_KEY,
-      stripe: !!process.env.STRIPE_SECRET_KEY,
-      cloudinary: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY)
-    }
-  });
+    memoryUsage: process.memoryUsage()
+  };
+  
+  res.status(200).json(debugInfo);
 });
 
 app.post('/clerk', express.json(), clerkWebHook)
