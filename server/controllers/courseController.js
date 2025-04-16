@@ -1,5 +1,5 @@
 import Course from "../models/Course.js";
-import { Purchase } from "../models/purchase.js";
+import { Purchase } from "../models/PurchaseModel.js";
 import Enrollment from "../models/enrollmentModel.js";
 import User from "../models/user.js";
 

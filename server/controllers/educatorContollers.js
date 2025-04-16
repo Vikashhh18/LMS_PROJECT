@@ -3,9 +3,11 @@ import { getAuth } from '@clerk/express';
 import { clerkClient } from '@clerk/clerk-sdk-node';
 import Course from '../models/Course.js';
 import {v2 as cloudinary} from 'cloudinary';
-import { Purchase } from '../models/purchase.js';
 import User from '../models/user.js';
 import Enrollment from '../models/enrollmentModel.js';
+import fs from 'fs';
+import path from 'path';
+import { Purchase } from '../models/PurchaseModel.js';
 
 export const updateRoleToEducator = async (req, res) => {
   try {
