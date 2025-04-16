@@ -6,7 +6,7 @@ import { protectEducator } from '../middlewares/authMiddlewares.js';
 
 const router = express.Router();
 
-router.get('/update-role', requireAuth, updateRoleToEducator);
+router.get('/update-role', requireAuth(), updateRoleToEducator);
 router.post('/add-course',upload.single('image'),protectEducator,addCourse); 
 router.get('/courses',protectEducator,getEducatorCourses);
 router.get('/deshboard',protectEducator,educatorDeshboardData);

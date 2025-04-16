@@ -3,12 +3,31 @@ import { AppContext } from '../../context/AppContext';
 import Loading from '../../components/student/Loading';
 
 const MyCourse = () => {
-  const { currency, allCourses } = useContext(AppContext);
+  const { currency, allCourses,backendUrl,isEducator,getToken } = useContext(AppContext);
   const [courses, setCourses] = useState(null);
 
-  const fetchAllCourses = () => {
-    setCourses(allCourses);
-  };
+  const fetchAllCourses = async () => {
+    // setCourses(allCourses);
+    try {
+      const token = await getToken();
+      const response = await fetch(`${backendUrl}/api/educator/courses`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if(data.success && data.courses) {
+        setCourses(data.courses);
+      } else {
+        console.error("Failed to fetch courses:", data.message);
+        setCourses([]);
+      }
+      console.log(data);        
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+      setCourses([]);
+    }
+  };    
 
   useEffect(() => {
     fetchAllCourses();
@@ -32,7 +51,7 @@ const MyCourse = () => {
               {courses.map((course, index) => {
                 const price = course?.coursePrice || 0;
                 const discount = course?.discount || 0;
-                const enrolledCount = course?.enrolledStudents?.length || 0;
+                const enrolledCount = course?.enrolledStudent?.length || 0;
                 const discountedPrice = Math.floor(price - (price * discount) / 100);
                 const totalEarning = enrolledCount * discountedPrice;
 

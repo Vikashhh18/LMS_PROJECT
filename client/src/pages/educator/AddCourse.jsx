@@ -1,10 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import Quill from 'quill';
 import uniqid from 'uniqid';
 import { assets } from '../../assets/assets';
 import 'quill/dist/quill.snow.css';
+import { AppContext } from '../../context/AppContext';
+import { toast } from 'react-toastify';
+import axios from 'axios';
 
 const AddCourse = () => {
+  const {getToken,backendUrl}=useContext(AppContext);
   const quillRef = useRef(null);
   const editorRef = useRef(null);
 
@@ -18,10 +22,12 @@ const AddCourse = () => {
   const [currentChapterId, setCurrentChapterId] = useState(null);
 
   const [lectureDetails, setLectureDetails] = useState({
+    lectureId: '',
     lectureTitle: '',
     lectureDuration: '',
     lectureUrl: '',
-    isPrivewFree: false,
+    isPreviewFree: false,
+    lectureOrder: 0
   });
 
   const handlerChapter = (action, chapterId) => {
@@ -50,15 +56,22 @@ const AddCourse = () => {
 
   const handleAddLecture = () => {
     if (!lectureDetails.lectureTitle || !lectureDetails.lectureDuration || !lectureDetails.lectureUrl) {
-      alert('Please fill all lecture fields.');
+      toast.error('Please fill all lecture fields.');
       return;
     }
 
+    const lectureId = uniqid();
     const updatedChapters = chapter.map(ch => {
       if (ch.chapterId === currentChapterId) {
+        const lectureOrder = ch.chapterContent.length + 1;
         return {
           ...ch,
-          chapterContent: [...ch.chapterContent, { ...lectureDetails }],
+          chapterContent: [...ch.chapterContent, { 
+            ...lectureDetails,
+            lectureId,
+            lectureOrder,
+            isPreviewFree: lectureDetails.isPreviewFree
+          }],
         };
       }
       return ch;
@@ -66,17 +79,82 @@ const AddCourse = () => {
 
     setChapter(updatedChapters);
     setLectureDetails({
+      lectureId: '',
       lectureTitle: '',
       lectureDuration: '',
       lectureUrl: '',
-      isPrivewFree: false,
+      isPreviewFree: false,
+      lectureOrder: 0
     });
     setShowPop(false);
   };
 
-  const handleSubmit= async(e)=>{
-    e.preventDefault();
-  }
+  const handleSubmit = async(e) => {
+    try {
+      e.preventDefault();
+      
+      if (!image) {
+        toast.error("Thumbnail is required");
+        return;
+      }
+      
+      if (discount < 0 || discount > 100) {
+        toast.error("Discount must be between 0 and 100");
+        return;
+      }
+      
+      if (chapter.length === 0) {
+        toast.error("At least one chapter is required");
+        return;
+      }
+      
+      const courseData = {
+        courseTitle,
+        courseDescription: quillRef.current.root.innerHTML,
+        coursePrice: Number(coursePrice),
+        discount: Number(discount),
+        courseContent: chapter.map((ch, chIndex) => ({
+          ...ch,
+          chapterOrder: chIndex + 1,
+          chapterContent: ch.chapterContent.map((lecture, lectureIndex) => ({
+            lectureId: lecture.lectureId || uniqid(),
+            lectureTitle: lecture.lectureTitle,
+            lectureDuration: Number(lecture.lectureDuration),
+            lectureUrl: lecture.lectureUrl,
+            isPreviewFree: lecture.isPreviewFree,
+            lectureOrder: lecture.lectureOrder || (lectureIndex + 1)
+          }))
+        }))
+      };
+
+      const formData = new FormData();
+      formData.append('courseData', JSON.stringify(courseData));
+      formData.append('image', image);
+      
+      const token = await getToken();
+      const {data} = await axios.post(
+        backendUrl + "/api/educator/add-course",
+        formData,
+        {headers: {Authorization: `Bearer ${token}`}}
+      );
+      
+      if (data.success) {
+        toast.success(data.message);
+        setChapter([]);
+        setCourseDescription('');
+        setCoursePrice(0);
+        setCourseTitle('');
+        setDiscount(0);
+        setImage(null);
+        quillRef.current.root.innerHTML = "";
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.error("Error submitting course:", error);
+      toast.error(error.response?.data?.message || error.message);
+    }
+  };
 
   useEffect(() => {
     if (!quillRef.current && editorRef.current) {
@@ -183,8 +261,8 @@ const AddCourse = () => {
                           <a href={lecture.lectureUrl} target="_blank" className="text-blue-500 underline" rel="noreferrer">
                             Watch
                           </a>{' '}
-                          | <span className={`inline-block px-2 py-0.5 text-xs rounded ${lecture.isPrivewFree ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {lecture.isPrivewFree ? 'Free Preview' : 'Paid'}
+                          | <span className={`inline-block px-2 py-0.5 text-xs rounded ${lecture.isPreviewFree ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {lecture.isPreviewFree ? 'Free Preview' : 'Paid'}
                           </span>
                         </p>
                       </div>
@@ -253,8 +331,8 @@ const AddCourse = () => {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={lectureDetails.isPrivewFree}
-                    onChange={(e) => setLectureDetails({ ...lectureDetails, isPrivewFree: e.target.checked })}
+                    checked={lectureDetails.isPreviewFree}
+                    onChange={(e) => setLectureDetails({ ...lectureDetails, isPreviewFree: e.target.checked })}
                   />
                   Free Preview
                 </label>
@@ -274,10 +352,12 @@ const AddCourse = () => {
                 onClick={() => {
                   setShowPop(false);
                   setLectureDetails({
+                    lectureId: '',
                     lectureTitle: '',
                     lectureDuration: '',
                     lectureUrl: '',
-                    isPrivewFree: false,
+                    isPreviewFree: false,
+                    lectureOrder: 0
                   });
                 }}
                 alt="Close"
@@ -286,7 +366,7 @@ const AddCourse = () => {
           </div>
         )}
 
-        <button type="submit" className="bg-black text-white w-max py-2.5 px-8 rounded my-4">
+        <button type="submit" className="bg-black cursor-pointer text-white w-max py-2.5 px-8 rounded my-4">
           ADD
         </button>
       </form>
