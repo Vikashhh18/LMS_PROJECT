@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connectivity Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-button {
+            margin: 10px 0;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        #results {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            min-height: 300px;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>API Connectivity Test</h1>
+    <p>This tool helps verify if your backend API is accessible.</p>
+    
+    <div>
+        <label for="api-url">Backend URL:</label>
+        <input type="text" id="api-url" value="https://lms-backend.onrender.com" style="width: 300px; padding: 5px;">
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <button class="test-button" onclick="testHealth()">Test Health Endpoint</button>
+        <button class="test-button" onclick="testCourses()">Test Courses Endpoint</button>
+        <button class="test-button" onclick="testDebug()">Test Debug Endpoint</button>
+    </div>
+    
+    <div id="results">
+        <p>Test results will appear here...</p>
+    </div>
+    
+    <script>
+        function appendResult(message, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const p = document.createElement('p');
+            p.className = isError ? 'error' : 'success';
+            p.textContent = message;
+            resultsDiv.appendChild(p);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testHealth() {
+            clearResults();
+            const apiUrl = document.getElementById('api-url').value;
+            
+            appendResult(`🧪 Testing ${apiUrl}/health...`);
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(`${apiUrl}/health`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                const endTime = performance.now();
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    appendResult(`✅ Health check passed! Response: "${text}" (${Math.round(endTime - startTime)}ms)`);
+                } else {
+                    appendResult(`❌ Health check failed with status: ${response.status}`, true);
+                }
+            } catch (error) {
+                appendResult(`❌ Connection error: ${error.message}`, true);
+                appendResult(`This usually indicates a CORS issue or the server is not running.`, true);
+            }
+        }
+        
+        async function testCourses() {
+            clearResults();
+            const apiUrl = document.getElementById('api-url').value;
+            
+            appendResult(`🧪 Testing ${apiUrl}/api/course/all...`);
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(`${apiUrl}/api/course/all`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                const endTime = performance.now();
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    appendResult(`✅ Courses API response received (${Math.round(endTime - startTime)}ms)`);
+                    appendResult(`Success: ${data.success}`);
+                    appendResult(`Courses count: ${data.courses ? data.courses.length : 'N/A'}`);
+                } else {
+                    appendResult(`❌ Courses API failed with status: ${response.status}`, true);
+                }
+            } catch (error) {
+                appendResult(`❌ Connection error: ${error.message}`, true);
+                appendResult(`This usually indicates a CORS issue or the server is not running.`, true);
+            }
+        }
+        
+        async function testDebug() {
+            clearResults();
+            const apiUrl = document.getElementById('api-url').value;
+            
+            appendResult(`🧪 Testing ${apiUrl}/api/debug...`);
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(`${apiUrl}/api/debug`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                const endTime = performance.now();
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    appendResult(`✅ Debug info received (${Math.round(endTime - startTime)}ms)`);
+                    appendResult(`Environment: ${data.environment}`);
+                    appendResult(`Server Time: ${data.serverTime}`);
+                    appendResult(`MongoDB Connected: ${data.connections?.mongodb ? 'Yes' : 'No'}`);
+                    appendResult(`Clerk Connected: ${data.connections?.clerk ? 'Yes' : 'No'}`);
+                    appendResult(`Stripe Connected: ${data.connections?.stripe ? 'Yes' : 'No'}`);
+                    appendResult(`Cloudinary Connected: ${data.connections?.cloudinary ? 'Yes' : 'No'}`);
+                } else {
+                    appendResult(`❌ Debug API failed with status: ${response.status}`, true);
+                }
+            } catch (error) {
+                appendResult(`❌ Connection error: ${error.message}`, true);
+                appendResult(`This usually indicates a CORS issue or the server is not running.`, true);
+            }
+        }
+    </script>
+</body>
+</html> 

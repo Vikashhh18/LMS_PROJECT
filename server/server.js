@@ -21,28 +21,13 @@ await connectCloudinary();
 // This route should match what you have configured in your Stripe dashboard
 app.post("/webhook", express.raw({ type: 'application/json' }), stripeWebhook);
 
-// Enhanced CORS configuration
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://checkout.stripe.com'
-];
-
-// Add your Render frontend URL
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
-
-// In development, allow all origins for easier testing
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? allowedOrigins
-    : '*',
+// *** Fixed CORS configuration - allow all origins for now to debug connectivity issues ***
+app.use(cors({
+  origin: '*', // Allow all origins temporarily to debug
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-app.use(cors(corsOptions));
+}));
 
 app.use(clerkMiddleware());
 app.use(ClerkExpressWithAuth());
